@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocMaker.UA — Твій документ за 1 хвилину 🇺🇦</title>
+    <script src="https://cdn.tailwindcss.com">
+    </script>
+    <style>
+        /* Базові стилі для друку */
+        @media print {
+            body * { visibility: hidden; }
+            #docResult, #docResult * { visibility: visible; }
+            #docResult { position: absolute; left: 0; top: 0; width: 100%; background: white; color: black; padding: 20px; }
+            #docResult .doc-page { box-shadow: none !important; border: none !important; padding: 20px !important; max-width: 100% !important; }
+            .no-print, header, footer, .benefits, .category-section, .form-section, .tariffs-section { display: none !important; }
+            @page { margin: 1.5cm; }
+        }
+        /* Загальні стилі */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; background: #0f0f1a; color: #e0e0e0; min-height: 100vh; }
+        .text-gold { color: #FFD700; }
+        .bg-gold { background: #FFD700; }
+        .border-gold { border-color: #FFD700; }
+        .doc-text { font-family: 'Georgia', 'Times New Roman', serif; }
+        /* Плавна поява */
+        .fade-in { opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease, transform 0.6s ease; }
+        .fade-in.visible { opacity: 1; transform: translateY(0); }
+        /* Тости */
+        .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px); background: #1a1a2e; border: 1px solid #3B82F6; color: #e0e0e0; padding: 12px 24px; border-radius: 12px; font-size: 14px; z-index: 1000; opacity: 0; transition: all 0.4s ease; pointer-events: none; }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        /* Стилі для скролу */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0f0f1a; }
+        ::-webkit-scrollbar-thumb { background: #3B82F6; border-radius: 3px; }
+        /* Модальне вікно */
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); z-index: 999; display: none; align-items: center; justify-content: center; padding: 20px; }
+        .modal-overlay.active { display: flex; }
+        .modal-content { background: #1a1a2e; border-radius: 24px; padding: 40px; max-width: 900px; width: 100%; max-height: 90vh; overflow-y: auto; position: relative; border: 1px solid #2a2a4e; }
+        /* Документ */
+        .doc-page { background: white; color: #1a1a2e; padding: 40px 50px; border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); max-width: 800px; margin: 0 auto; font-size: 12pt; line-height: 1.6; position: relative; overflow: hidden; }
+        .doc-page .watermark { position: absolute; right: 20px; bottom: 20px; font-size: 60px; color: rgba(59,130,246,0.06); font-weight: bold; pointer-events: none; transform: rotate(-15deg); }
+        .doc-page h1 { font-size: 16pt; font-weight: bold; text-align: center; margin-bottom: 20px; }
+        .doc-page h2 { font-size: 13pt; font-weight: bold; margin-top: 16px; margin-bottom: 8px; }
+        .doc-page p { margin-bottom: 8px; text-align: justify; }
+        .doc-page .signature-line { margin-top: 30px; display: flex; justify-content: space-between; }
+        .doc-page .signature-line div { width: 45%; }
+        .doc-page .signature-line .line { border-bottom: 1px solid #333; margin-top: 30px; margin-bottom: 4px; }
+        /* Анімація для документа */
+        .doc-animate { animation: slideUp 0.5s ease-out; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
+        /* Лоадер */
+        .loader { display: none; text-align: center; padding: 40px; }
+        .loader.active { display: block; }
+        .loader .spinner { width: 48px; height: 48px; border: 4px solid #2a2a4e; border-top: 4px solid #3B82F6; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        /* Категорії та документи */
+        .cat-card, .doc-card, .tariff-card { cursor: pointer; transition: all 0.3s ease; }
+        .cat-card:hover, .doc-card:hover { transform: translateY(-4px); box-shadow: 0 12px 30px rgba(59,130,246,0.2); }
+        .cat-card.active, .doc-card.active { border-color: #3B82F6; background: rgba(59,130,246,0.1); }
+        /* Бейдж */
+        .badge-popular { background: #FFD700; color: #1a1a2e; font-size: 10px; font-weight: bold; padding: 2px 10px; border-radius: 20px; position: absolute; top: -10px; right: 20px; }
+        /* Анімація лічильника */
+        .count-up { display: inline-block; }
+        /* Стиль для полів вводу */
+        .form-input { background: #0f0f1a; border: 1px solid #2a2a4e; color: #e0e0e0; padding: 10px 14px; border-radius: 10px; width: 100%; transition: border-color 0.3s; font-size: 14px; }
+        .form-input:focus { outline: none; border-color: #3B82F6; box-shadow: 0 0 0 3px rgba(59,130,246,0.2); }
+        .form-input::placeholder { color: #555; }
+        .form-label { display: block; font-size: 13px; font-weight: 500; color: #aaa; margin-bottom: 4px; }
+    </style>
+</head>
+<body>
+
+    <!-- Toast -->
+    <div id="toast" class="toast">Скопійовано! ✅</div>
+
+    <!-- Модальне вікно тарифів -->
+    <div class="modal-overlay" id="tariffModal">
+        <div class="modal-content">
+            <button onclick="closeModal()" style="position:absolute;top:16px;right:20px;background:none;border:none;color:#aaa;font-size:24px;cursor:pointer;">✕</button>
+            <h2 class="text-2xl font-bold text-center mb-8">Оберіть тариф</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Безкоштовно -->
+                <div class="tariff-card p-6 rounded-2xl border border-gray-700 text-center hover:border-blue-500">
+                    <div class="text-4xl mb-2">📄</div>
+                    <h3 class="text-lg font-bold">Безкоштовно</h3>
+                    <div class="text-3xl font-bold my-3 text-gold">0 ₴</div>
+                    <p class="text-gray-400 text-sm mb-4">3 документи</p>
+                    <ul class="text-left text-sm text-gray-400 space-y-2 mb-6">
+                        <li>✅ 3 шаблони документів</li>
+                        <li>✅ Базові поля</li>
+                        <li>❌ Історія генерацій</li>
+                        <li>❌ Пріоритетні шаблони</li>
+                    </ul>
+                    <button onclick="alert('Безкоштовний тариф вже активний!')" class="w-full py-2 px-4 rounded-xl border border-gray-600 text-gray-300 hover:border-blue-500 transition">Обрати</button>
+                </div>
+                <!-- Стандарт -->
+                <div class="tariff-card p-6 rounded-2xl border-2 border-gold text-center relative hover:shadow-lg hover:shadow-gold/20">
+                    <span class="badge-popular">🔥 ПОПУЛЯРНИЙ</span>
+                    <div class="text-4xl mb-2">⭐</div>
+                    <h3 class="text-lg font-bold">Стандарт</h3>
+                    <div class="text-3xl font-bold my-3 text-gold">299 ₴/міс</div>
+                    <p class="text-gray-400 text-sm mb-4">Безліміт документів</p>
+                    <ul class="text-left text-sm text-gray-400 space-y-2 mb-6">
+                        <li>✅ Усі 10 шаблонів</li>
+                        <li>✅ Безліміт документів</li>
+                        <li>✅ Історія генерацій</li>
+                        <li>✅ Копіювання та друк</li>
+                    </ul>
+                    <button onclick="alert('Оплата через Monobank. Посилання з\'явиться найближчим часом. А поки — пишіть у Telegram!')" class="w-full py-2 px-4 rounded-xl bg-gold text-gray-900 font-bold hover:bg-yellow-400 transition">Обрати</button>
+                </div>
+                <!-- Профі -->
+                <div class="tariff-card p-6 rounded-2xl border border-gray-700 text-center hover:border-blue-500">
+                    <div class="text-4xl mb-2">💎</div>
+                    <h3 class="text-lg font-bold">Профі</h3>
+                    <div class="text-3xl font-bold my-3 text-gold">990 ₴/міс</div>
+                    <p class="text-gray-400 text-sm mb-4">Максимум можливостей</p>
+                    <ul class="text-left text-sm text-gray-400 space-y-2 mb-6">
+                        <li>✅ Усе зі Стандарту</li>
+                        <li>✅ Нові шаблони першим</li>
+                        <li>✅ Пріоритетна підтримка</li>
+                        <li>✅ Індивідуальні шаблони</li>
+                    </ul>
+                    <button onclick="alert('Оплата через Monobank. Посилання з\'явиться найближчим часом. А поки — пишіть у Telegram!')" class="w-full py-2 px-4 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition">Обрати</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Шапка -->
+    <header class="no-print" style="padding: 20px 0 0;">
+        <div class="max-w-6xl mx-auto px-4">
+            <div class="flex items-center justify-between flex-wrap gap-4">
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-bold" style="color:#fff;">
+                        📄 DocMaker.<span style="color:#FFD700;">UA</span>
+                    </h1>
+                    <p class="text-gray-400 text-sm">Твій документ за 1 хвилину 🇺🇦</p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="text-sm text-gray-400 bg-[#1a1a2e] px-4 py-2 rounded-xl border border-gray-700">
+                        📊 Створено: <span id="counterDisplay" class="text-gold font-bold">0</span> док.
+                    </div>
+                    <button onclick="document.querySelector('.category-section').scrollIntoView({behavior:'smooth'})" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition shadow-lg shadow-blue-600/25">
+                        Створити документ ⚡
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Блок переваг -->
+    <section class="benefits no-print max-w-6xl mx-auto px-4 mt-10">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="fade-in p-6 rounded-2xl border border-gray-700 bg-[#1a1a2e] text-center hover:border-blue-500/50 transition">
+                <div class="text-4xl mb-3">⏱</div>
+                <h3 class="font-bold text-lg mb-2">1 хвилина</h3>
+                <p class="text-gray-400 text-sm">Створення документа за 60 секунд. Без реєстрації, без черг, без зайвих кроків.</p>
+            </div>
+            <div class="fade-in p-6 rounded-2xl border border-gray-700 bg-[#1a1a2e] text-center hover:border-blue-500/50 transition" style="transition-delay:0.1s;">
+                <div class="text-4xl mb-3">🇺🇦</div>
+                <h3 class="font-bold text-lg mb-2">Для ФОПів України</h3>
+                <p class="text-gray-400 text-sm">Шаблони за законодавством України. Українською мовою. Юридично грамотні тексти.</p>
+            </div>
+            <div class="fade-in p-6 rounded-2xl border border-gray-700 bg-[#1a1a2e] text-center hover:border-blue-500/50 transition" style="transition-delay:0.2s;">
+                <div class="text-4xl mb-3">🖨</div>
+                <h3 class="font-bold text-lg mb-2">Готовий до друку</h3>
+                <p class="text-gray-400 text-sm">Одразу на папір або в PDF. Копіюйте, друкуйте, підписуйте з клієнтами.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Вибір категорії -->
+    <section class="category-section no-print max-w-6xl mx-auto px-4 mt-12">
+        <h2 class="text-2xl font-bold text-center mb-8">Оберіть категорію документа</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="categoriesContainer">
+            <div class="cat-card p-6 rounded-2xl border-2 border-gray-700 bg-[#1a1a2e] text-center" data-category="0" onclick="selectCategory(0)">
+                <div class="text-5xl mb-3">📋</div>
+                <h3 class="font-bold text-lg">Для роботи з клієнтами</h3>
+                <p class="text-gray-400 text-sm mt-2">Договори, акти, рахунки</p>
+            </div>
+            <div class="cat-card p-6 rounded-2xl border-2 border-gray-700 bg-[#1a1a2e] text-center" data-category="1" onclick="selectCategory(1)">
+                <div class="text-5xl mb-3">👷</div>
+                <h3 class="font-bold text-lg">Для підрядників і найму</h3>
+                <p class="text-gray-400 text-sm mt-2">Підряд, розписки, трудові</p>
+            </div>
+            <div class="cat-card p-6 rounded-2xl border-2 border-gray-700 bg-[#1a1a2e] text-center" data-category="2" onclick="selectCategory(2)">
+                <div class="text-5xl mb-3">🏠</div>
+                <h3 class="font-bold text-lg">Для оренди і життя</h3>
+                <p class="text-gray-400 text-sm mt-2">Оренда, довіреність, угоди</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Список типів документів -->
+    <section class="doc-types-section no-print max-w-6xl mx-auto px-4 mt-8" id="docTypesContainer" style="display:none;">
+        <div class="flex items-center gap-2 mb-4">
+            <button onclick="resetCategories()" class="text-sm text-gray-400 hover:text-white transition">← Назад</button>
+            <span class="text-gray-600">|</span>
+            <span id="categoryTitle" class="text-lg font-semibold"></span>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="docTypesGrid"></div>
+    </section>
+
+    <!-- Форма -->
+    <section class="form-section no-print max-w-4xl mx-auto px-4 mt-8" id="formSection" style="display:none;">
+        <div class="bg-[#1a1a2e] border border-gray-700 rounded-2xl p-6 md:p-8">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-bold" id="formTitle">📄 Документ</h3>
+                <button onclick="resetToDocTypes()" class="text-sm text-gray-400 hover:text-white transition">← Інший документ</button>
+            </div>
+            <div id="formFields"></div>
+            <button onclick="generateDocument()" class="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-xl font-bold text-lg transition shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2">
+                ⚡ Створити документ
+            </button>
+        </div>
+    </section>
+
+    <!-- Лоадер -->
+    <div class="loader" id="loader">
+        <div class="spinner"></div>
+        <p class="text-gray-400">Створюємо документ...</p>
+    </div>
+
+    <!-- Результат -->
+    <section class="result-section max-w-5xl mx-auto px-4 mt-8" id="resultSection" style="display:none;">
+        <div class="bg-[#1a1a2e] border border-gray-700 rounded-2xl p-6 md:p-8">
+            <h3 class="text-xl font-bold mb-6 text-center">📄 Готовий документ</h3>
+            <div id="docResult" class="doc-animate"></div>
+            <div class="flex flex-wrap gap-3 mt-6 justify-center">
+                <button onclick="printDocument()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2">🖨 Роздрукувати</button>
+                <button onclick="copyDocument()" class="bg-gray-700 hover:bg-gray-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2">📋 Копіювати</button>
+                <button onclick="generateDocument()" class="bg-gray-700 hover:bg-gray-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2">🔄 Створити інший</button>
+                <button onclick="shareTelegram()" class="bg-[#0088cc] hover:bg-[#0077b5] text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2">📱 Поділитись</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Футер -->
+    <footer class="no-print text-center text-gray-500 text-sm py-10 mt-12 border-t border-gray-800">
+        <p class="mb-2">Зроблено в Україні 🇺🇦</p>
+        <p class="mb-2">© 2026 DocMaker.UA — це допоміжний інструмент, документи мають рекомендаційний характер</p>
+        <p>Telegram: <a href="https://t.me/docmaker_ua" class="text-blue-400 hover:underline">@docmaker_ua</a></p>
+    </footer>
+
+    <script>
+        // ========== ДАНІ ==========
+        const categories = [
+            {
+                name: 'Для роботи з клієнтами',
+                docs: [
+                    { id: 'service', name: 'Договір надання послуг', icon: '📄' },
+                    { id: 'act', name: 'Акт виконаних робіт', icon: '✅' },
+                    { id: 'invoice', name: 'Рахунок на оплату', icon: '💰' }
+                ]
+            },
+            {
+                name: 'Для підрядників і найму',
+                docs: [
+                    { id: 'contract', name: 'Договір підряду', icon: '🔨' },
+                    { id: 'receipt', name: 'Розписка про отримання коштів', icon: '📝' },
+                    { id: 'transfer', name: 'Акт прийому-передачі', icon: '📦' },
+                    { id: 'labor', name: 'Трудовий договір', icon: '👥' }
+                ]
+            },
+            {
+                name: 'Для оренди і життя',
+                docs: [
+                    { id: 'rent', name: 'Договір оренди', icon: '🏢' },
+                    { id: 'power', name: 'Довіреність', icon: '📜' },
+                    { id: 'addendum', name: 'Додаткова угода', icon: '📑' }
+                ]
+            }
+        ];
+
+        // ========== ПОЛЯ ФОРМ ДЛЯ КОЖНОГО ТИПУ ==========
+        const formConfigs = {
+            service: {
+                title: '📄 Договір надання послуг',
+                fields: [
+                    { id: 'contractNum', label: 'Номер договору', type: 'text', placeholder: 'Наприклад: ДН-2026/001' },
+                    { id: 'city', label: 'Місто', type: 'text', placeholder: 'Київ' },
+                    { id: 'date', label: 'Дата', type: 'date' },
+                    { id: 'executor', label: 'Виконавець — ПІБ або назва ФОП', type: 'text', placeholder: 'ФОП Іваненко І.І.' },
+                    { id: 'executorInn', label: 'Виконавець — РНОКПП/ІПН', type: 'text', placeholder: '1234567890' },
+                    { id: 'client', label: 'Замовник — ПІБ або назва', type: 'text', placeholder: 'Петров П.П.' },
+                    { id: 'subject', label: 'Предмет договору', type: 'textarea', placeholder: 'Опишіть послугу, яку надаєте' },
+                    { id: 'price', label: 'Вартість послуг (грн)', type: 'number', placeholder: '10000' },
+                    { id: 'term', label: 'Строк дії', type: 'text', placeholder: 'Наприклад: з 01.06.2026 по 31.12.2026' }
+                ]
+            },
+            act: {
+                title: '✅ Акт виконаних робіт',
+                fields: [
+                    { id: 'actNum', label: 'Номер акта', type: 'text', placeholder: 'А-2026/001' },
+                    { id: 'city', label: 'Місто', type: 'text', placeholder: 'Київ' },
+                    { id: 'date', label: 'Дата', type: 'date' },
+                    { id: 'contractRef', label: 'Послуга за договором №', type: 'text', placeholder: 'ДН-2026/001' },
+                    { id: 'executor', label: 'Виконавець — ПІБ', type: 'text', placeholder: 'ФОП Іваненко І.І.' },
+                    { id: 'client', label: 'Замовник — ПІБ', type: 'text', placeholder: 'Петров П.П.' },
+                    { id: 'description', label: 'Опис виконаних робіт', type: 'textarea', placeholder: 'Надано послуги з...' },
+                    { id: 'price', label: 'Вартість (грн)', type: 'number', placeholder: '10000' },
+                    { id: 'period', label: 'Термін виконання', type: 'text', placeholder: 'з 01.06.2026 по 15.06.2026' }
+                ]
+            },
+            invoice: {
+                title: '💰 Рахунок на оплату',
+                fields: [
+                    { id: 'invNum', label: 'Номер рахунку', type: 'text', placeholder: 'СФ-2026/001' },
+                    { id: 'date', label: 'Дата', type: 'date' },
+                    { id: 'seller', label: 'Постачальник — ПІБ ФОП', type: 'text', placeholder: 'ФОП Іваненко І.І.' },
+                    { id: 'sellerInn', label: 'Постачальник — ІПН', type: 'text', placeholder: '1234567890' },
+                    { id: 'sellerIban', label: 'Постачальник — IBAN', type: 'text', placeholder: 'UA123456789012345678901234567' },
+                    { id: 'sellerBank', label: 'Постачальник — банк', type: 'text', placeholder: 'АТ "ПриватБанк"' },
+                    { id: 'buyer', label: 'Платник — ПІБ або назва', type: 'text', placeholder: 'Петров П.П.' },
+                    { id: 'purpose', label: 'Призначення платежу', type: 'textarea', placeholder: 'Оплата за надані послуги згідно договору №...' },
+                    { id: 'price', label: 'Сума (грн)', type: 'number', placeholder: '10000' },
+                    { id: 'pdv', label: 'ПДВ', type: 'select', options: ['Без ПДВ', '20% ПДВ включено', '20% ПДВ додається'] }
+                ]
+            },
+            contract: {
+                title: '🔨 Договір підряду',
+                fields: [
+                    { id: 'contractNum', label: 'Номер договору', type: 'text', placeholder: 'ДП-2026/001' },
+                    { id: 'city', label: 'Місто', type: 'text', placeholder: 'Київ' },
+                    { id: 'date', label: 'Дата', type: 'date' },
+                    { id: 'executor', label: 'Підрядник — ПІБ ФОП', type: 'text', placeholder: 'ФОП Іваненко І.І.' },
+                    { id: 'executorInn', label: 'Підрядник — РНОКПП', type: 'text', placeholder: '1234567890' },
+                    { id: 'client', label: 'Замовник — ПІБ', type: 'text', placeholder: 'Петров П.П.' },
+                    { id: 'works', label: 'Вид робіт', type: 'textarea', placeholder: 'Опишіть роботи, які виконуються' },
+                    { id: 'price', label: 'Вартість робіт (грн)', type: 'number', placeholder: '50000' },
+                    { id: 'term', label: 'Строк виконання', type: 'text', placeholder: '30 днів з дати підписання' },
+                    { id: 'paymentOrder', label: 'Порядок оплати', type: 'select', options: ['100% після виконання', 'Передоплата 50%', 'Поетапна оплата'] }
+                ]
+            },
+            receipt: {
+                title: '📝 Розписка про отримання коштів',
+                fields: [
+                    { id: 'city', label: 'Місто', type: 'text', placeholder: 'Київ' },
+                    { id: 'date', label: 'Дата', type: 'date' },
+                    { id: 'lender', label: 'Позикодавець — ПІБ', type: 'text', placeholder: 'Іваненко І.І.' },
+                    { id: 'borrower', label: 'Позичальник — ПІБ', type: 'text', placeholder: 'Петров П.П.' },
+                    { id: 'amount', label: 'Сума (цифрами)', type: 'number', placeholder: '5000' },
+                    { id: 'amountText', label: 'Сума прописом', type: 'text', placeholder: 'П\'ять тисяч гривень 00 копійок' },
+                    { id: 'returnTerm', label: 'Строк повернення', type: 'text', placeholder: 'до 31 грудня 2026 року' },
+                    { id: 'currency', label: 'Валюта', type: 'select', options: ['Гривня', 'Долар США', 'Євро'] }
+                ]
+            },
+            transfer: {
+                title: '📦 Акт прийому-передачі',
+                fields: [
+                    { id: 'actNum', label: 'Номер акта', type: 'text', placeholder: 'АП-2026/001' },
+                    { id: 'city', label: 'Місто', type: 'text', placeholder: 'Київ' },
+                    { id: 'date', label: 'Дата', type: 'date' },
+                    { id: 'sender', label: 'Передавач — ПІБ', type: 'text', placeholder: 'Іваненко І.І.' },
+                    { id: 'receiver', label: 'Отримувач — ПІБ', type: 'text', placeholder: 'Петров П.П.' },
+                    { id: 'itemName', label: 'Найменування майна/товару', type: 'textarea', placeholder: 'Опис товару або майна' },
+                    { id: 'quantity', label: 'Кількість', type: 'number', placeholder: '1' },
+                    { id: 'condition', label: 'Стан', type: 'textarea', placeholder: 'Новий, без дефектів, справний' },
+                    { id: 'price', label: 'Вартість (грн)', type: 'number', placeholder: '10000' }
+                ]
+            },
+            labor: {
+                title: '👥 Трудовий договір',
+                fields: [
+                    { id: 'contractNum', label: 'Номер договору', type: 'text', placeholder: 'ТД-2026/001' },
+                    { id: 'city', label: 'Місто', type: 'text', placeholder: 'Київ' },
+                    { id: 'date', label: 'Дата', type: 'date' },
+                    { id: 'employer', label: 'Роботодавець — ФОП', type: 'text', placeholder: 'ФОП Іваненко І.І.' },
+                    { id: 'employerInn', label: 'Роботодавець — РНОКПП', type: 'text', placeholder: '1234567890' },
+                    { id: 'employee', label: 'Працівник — ПІБ', type: 'text', placeholder: 'Петров П.П.' },
+                    { id: 'employeeInn', label: 'Працівник — РНОКПП', type: 'text', placeholder: '0987654321' },
+                    { id: 'position', label: 'Посада', type: 'text', placeholder: 'Менеджер з продажу' },
+                    { id: 'salary', label: 'Оклад (грн)', type: 'number', placeholder: '15000' },
+                    { id: 'startDate', label: 'Дата початку роботи', type: 'date' }
+                ]
+            },
+            rent: {
+                title: '🏢 Договір оренди',
+                fields: [
+                    { id: 'contractNum', label: 'Номер договору', type: 'text', placeholder: 'ДО-2026/001' },
+                    { id: 'city', label: 'Місто', type: 'text', placeholder: 'Київ' },
+                    { id: 'date', label: 'Дата', type: 'date' },
+                    { id: 'landlord', label: 'Орендодавець — ПІБ', type: 'text', placeholder: 'Іваненко І.І.' },
+                    { id: 'tenant', label: 'Орендар — ПІБ', type: 'text', placeholder: 'Петров П.П.' },
+                    { id: 'address', label: 'Адреса об\'єкта', type: 'textarea', placeholder: 'м. Київ, вул. Хрещатик, буд. 1, кв. 10' },
+                    { id: 'description', label: 'Опис приміщення', type: 'textarea', placeholder: '1-кімнатна квартира, загальна площа...' },
+                    { id: 'area', label: 'Площа (м²)', type: 'number', placeholder: '35' },
+                    { id: 'rentPrice', label: 'Орендна плата на місяць (грн)', type: 'number', placeholder: '12000' },
+                    { id: 'rentTerm', label: 'Строк оренди', type: 'text', placeholder: '11 місяців' }
+                ]
+            },
+            power: {
+                title: '📜 Довіреність',
+                fields: [
+                    { id: 'city', label: 'Місто', type: 'text', placeholder: 'Київ' },
+                    { id: 'date', label: 'Дата', type: 'date' },
+                    { id: 'principal', label: 'Довіритель — ПІБ', type: 'text', placeholder: 'Іваненко І.І.' },
+                    { id: 'principalPass', label: 'Довіритель — паспорт', type: 'text', placeholder: 'Серія та номер паспорта' },
+                    { id: 'agent', label: 'Представник — ПІБ', type: 'text', placeholder: 'Петров П.П.' },
+                    { id: 'agentPass', label: 'Представник — паспорт', type: 'text', placeholder: 'Серія та номер паспорта' },
+                    { id: 'authority', label: 'Повноваження', type: 'textarea', placeholder: 'Опишіть, на що уповноважується представник' },
+                    { id: 'validity', label: 'Строк дії', type: 'text', placeholder: '1 рік' }
+                ]
+            },
+            addendum: {
+                title: '📑 Додаткова угода',
+                fields: [
+                    { id: 'addNum', label: 'Номер угоди', type: 'text', placeholder: 'ДУ-2026/001' },
+                    { id: 'city', label: 'Місто', type: 'text', placeholder: 'Київ' },
+                    { id: 'date', label: 'Дата', type: 'date' },
+                    { id: 'mainContract', label: 'До договору №', type: 'text', placeholder: 'ДН-2026/001' },
+                    { id: 'mainContractDate', label: 'Від (дата договору)', type: 'date' },
+                    { id: 'party1', label: 'Сторона 1 — ПІБ', type: 'text' },
+                    { id: 'party2', label: 'Сторона 2 — ПІБ', type: 'text' },
+                    { id: 'changes', label: 'Суть змін', type: 'textarea', placeholder: 'Опишіть, що змінюється' },
+                    { id: 'newText', label: 'Нова редакція пункту', type: 'textarea', placeholder: 'Викладено пункт у новій редакції:' },
+                    { id: 'effectiveDate', label: 'Дата набрання чинності', type: 'date' }
+                ]
+            }
+        };
+
+        // ========== СТАН ==========
+        let state = {
+            selectedCategory: null,
+            selectedDocType: null,
+            freeCount: parseInt(localStorage.getItem('docmaker_freeCount') || '0'),
+            totalCount: parseInt(localStorage.getItem('docmaker_totalCount') || '1284'),
+            isPremium: localStorage.getItem('docmaker_premium') === 'true'
+        };
+
+        // ========== ІНІЦІАЛІЗАЦІЯ ==========
+        document.addEventListener('DOMContentLoaded', function() {
+            updateCounter();
+            initAnimations();
+        });
+
+        // ========== АНІМАЦІЯ ПОЯВИ ==========
+        function initAnimations() {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                    }
+                });
+            }, { threshold: 0.1 });
+            document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+            // Показуємо що вже видно
+            setTimeout(() => {
+                document.querySelectorAll('.fade-in').forEach(el => el.classList.add('visible'));
+            }, 200);
+        }
+
+        // ========== ЛІЧИЛЬНИК ==========
+        function updateCounter() {
+            const el = document.getElementById('counterDisplay');
+            if (el) el.textContent = state.totalCount;
+        }
+
+        function incrementCounter() {
+            state.totalCount++;
+            state.freeCount++;
+            localStorage.setItem('docmaker_totalCount', state.totalCount);
+            localStorage.setItem('docmaker_freeCount', state.freeCount);
+            updateCounter();
+            // Анімація лічильника
+            const el = document.getElementById('counterDisplay');
+            if (el) {
+                el.style.transform = 'scale(1.3)';
+                setTimeout(() => { el.style.transition = 'transform 0.3s'; el.style.transform = 'scale(1)'; }, 300);
+            }
+        }
+
+        // ========== ВИБІР КАТЕГОРІЇ ==========
+        function selectCategory(index) {
+            state.selectedCategory = index;
+            // Візуальне виділення
+            document.querySelectorAll('.cat-card').forEach((el, i) => {
+                el.classList.toggle('active', i === index);
+                el.style.borderColor = i === index ? '#3B82F6' : '#2a2a4e';
+            });
+            // Показати типи документів
+            const container = document.getElementById('docTypesContainer');
+            container.style.display = 'block';
+            container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            document.getElementById('categoryTitle').textContent = categories[index].name;
+            const grid = document.getElementById('docTypesGrid');
+            grid.innerHTML = '';
+            categories[index].docs.forEach((doc, i) => {
+                const card = document.createElement('div');
+                card.className = 'doc-card p-5 rounded-2xl border border-gray-700 bg-[#1a1a2e] text-center hover:border-blue-500';
+                card.style.transitionDelay = (i * 0.05) + 's';
+                card.innerHTML = `
+                    <div class="text-3xl mb-2">${doc.icon}</div>
+                    <div class="text-sm font-medium">${doc.name}</div>
+                `;
+                card.onclick = () => selectDocType(doc.id);
+                grid.appendChild(card);
+            });
+            // Сховати форму та результат
+            document.getElementById('formSection').style.display = 'none';
+            document.getElementById('resultSection').style.display = 'none';
+        }
+
+        function resetCategories() {
+            document.getElementById('docTypesContainer').style.display = 'none';
+            document.getElementById('formSection').style.display = 'none';
+            document.getElementById('resultSection').style.display = 'none';
+            document.querySelectorAll('.cat-card').forEach(el => {
+                el.classList.remove('active');
+                el.style.borderColor = '#2a2a4e';
+            });
+            state.selectedCategory = null;
+            state.selectedDocType = null;
+        }
+
+        // ========== ВИБІР ТИПУ ДОКУМЕНТА ==========
+        function selectDocType(docId) {
+            state.selectedDocType = docId;
+            const config = formConfigs[docId];
+            if (!config) return;
+            document.getElementById('formTitle').textContent = config.title;
+            // Побудувати форму
+            const container = document.getElementById('formFields');
+            container.innerHTML = '';
+            config.fields.forEach(field => {
+                const div = document.createElement('div');
+                div.className = 'mb-4';
+                const label = document.createElement('label');
+                label.className = 'form-label';
+                label.textContent = field.label;
+                div.appendChild(label);
+                if (field.type === 'select') {
+                    const select = document.createElement('select');
+                    select.id = field.id;
+                    select.className = 'form-input';
+                    field.options.forEach(opt => {
+                        const option = document.createElement('option');
+                        option.value = opt;
+                        option.textContent = opt;
+                        select.appendChild(option);
+                    });
+                    div.appendChild(select);
+                } else if (field.type === 'textarea') {
+                    const textarea = document.createElement('textarea');
+                    textarea.id = field.id;
+                    textarea.className = 'form-input';
+                    textarea.placeholder = field.placeholder || '';
+                    textarea.rows = 3;
+                    div.appendChild(textarea);
+                } else {
+                    const input = document.createElement('input');
+                    input.type = field.type;
+                    input.id = field.id;
+                    input.className = 'form-input';
+                    input.placeholder = field.placeholder || '';
+                    div.appendChild(input);
+                }
+                container.appendChild(div);
+            });
+            // Показати форму
+            const formSection = document.getElementById('formSection');
+            formSection.style.display = 'block';
+            formSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            document.getElementById('resultSection').style.display = 'none';
+        }
+
+        function resetToDocTypes() {
+            document.getElementById('formSection').style.display = 'none';
+            document.getElementById('resultSection').style.display = 'none';
+            if (state.selectedCategory !== null) {
+                document.getElementById('docTypesContainer').style.display = 'block';
+                document.getElementById('docTypesContainer').scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        // ========== ГЕНЕРАЦІЯ ДОКУМЕНТА ==========
+        function generateDocument() {
+            // Перевірка ліміту
+            if (!state.isPremium && state.freeCount >= 3) {
+                document.getElementById('tariffModal').classList.add('active');
+                return;
+            }
+            const docId = state.selectedDocType;
+            if (!docId) { showToast('❌ Виберіть тип документа'); return; }
+            const config = formConfigs[docId];
+            // Зібрати дані
+            const data = {};
+            config.fields.forEach(field => {
+                const el = document.getElementById(field.id);
+                if (el) data[field.id] = el.value;
+            });
+            // Перевірка обов'язкових полів
+            let missing = false;
+            config.fields.forEach(field => {
+                const val = data[field.id] || '';
+                if (!val.trim()) missing = true;
+            });
+            if (missing) { showToast('❌ Заповніть всі поля'); return; }
+            // Показати лоадер
+            document.getElementById('loader').classList.add('active');
+            document.getElementById('resultSection').style.display = 'none';
+            // Сховати форму
+            document.getElementById('formSection').style.display = 'none';
+            // Імітація завантаження
+            setTimeout(() => {
+                const html = generateDocHtml(docId, data);
+                document.getElementById('docResult').innerHTML = html;
+                document.getElementById('loader').classList.remove('active');
+                document.getElementById('resultSection').style.display = 'block';
+                document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                incrementCounter();
+                // Зберегти в історію
+                saveToHistory(docId, data, html);
+            }, 800);
+        }
+
+        // ========== ШАБЛОНИ ДОКУМЕНТІВ ==========
+        function generateDocHtml(docId, data) {
+            const docDate = data.date || new Date().toLocaleDateString('uk-UA');
+            const city = data.city || 'Київ';
+            const templates = {
+                service: `
+                    <div class="doc-text doc-page" style="padding:40px 50px;background:white;color:#1a1a2e;border-radius:8px;max-width:800px;margin:0 auto;font-size:12pt;line-height:1.6;">
+                        <div class="watermark">DocMaker.UA</div>
+                        <h1 style="font-size:16pt;font-weight:bold;text-align:center;margin-bottom:4px;">ДОГОВІР НАДАННЯ ПОСЛУГ</h1>
+                        <p style="text-align:center;margin-bottom:20px;">№ ${data.contractNum || '___'}</p>
+                        <p style="text-align:right;margin-bottom:20px;">м. ${city} &nbsp;&nbsp;&nbsp; ${docDate}</p>
+                        <p style="margin-bottom:12px;text-align:justify;">
+                            <b>Фізична особа-підприємець ${data.executor || '___________'}</b> (РНОКПП ${data.executorInn || '___________'}), 
+                            іменований надалі <b>"Виконавець"</b>, що діє на підставі реєстрації, з одного боку, 
+                            та <b>${data.client || '___________'}</b>, іменований надалі <b>"Замовник"</b>, з іншого боку, 
+                            уклали цей договір про наступне:
+                        </p>
+                        <h2 style="font-size:13pt;font-weight:bold;margin-top:16px;margin-bottom:8px;">1. ПРЕДМЕТ ДОГОВОРУ</h2>
+                        <p style="margin-bottom:8px;text-align:justify;">1.1. Виконавець зобов'язується надати послуги згідно з описом, зазначеним у п. 1.2 цього договору, а Замовник зобов'язується прийняти та оплатити ці послуги.</p>
+                        <p style="margin-bottom:8px;text-align:justify;">1.2. Опис послуг: <b>${data.subject || '___________'}</b>.</p>
+                        <p style="margin-bottom:8px;text-align:justify;">1.3. Послуги надаються особисто Виконавцем та/або із залученням третіх осіб.</p>
+                        <h2 style="font-size:13pt;font-weight:bold;margin-top:16px;margin-bottom:8px;">2. ВАРТІСТЬ ПОСЛУГ ТА ПОРЯДОК РОЗРАХУНКІВ</h2>
+                        <p style="margin-bottom:8px;text-align:justify;">2.1. Вартість послуг за цим договором становить <b>${data.price || '___________'} грн</b>.</p>
+                        <p style="margin-bottom:8px;text-align:justify;">2.2. Оплата здійснюється протягом 5 (п'яти) банківських днів після підписання Акту виконаних робіт.</p>
+                        <h2 style="font-size:13pt;font-weight:bold;margin-top:16px;margin-bottom:8px;">3. СТРОК ДІЇ ДОГОВОРУ</h2>
+                        <p style="margin-bottom:8px;text-align:justify;">3.1. Договір набирає чинності з моменту підписання і діє до <b>${data.term || '___________'}</b>.</p>
+                        <p style="margin-bottom:8px;text-align:justify;">3.2. Договір може бути розірваний достроково за згодою сторін.</p>
+                        <h2 style="font-size:13pt;font-weight:bold;margin-top:16px;margin-bottom:8px;">4. ПІДПИСИ СТОРІН</h2>
+                        <div style="display:flex;justify-content:space-between;margin-top:30px;">
+                            <div style="width:45%;">
+                                <p><b>Виконавець:</b></p>
+                                <p>${data.executor || '___________'}</p>
+                                <div style="border-bottom:1px solid #333;margin-top:30px;margin-bottom:4px;"></div>
+                                <p style="font-size:10pt;color:#666;">(підпис)</p>
+                            </div>
+                            <div style="width:45%;">
+                                <p><b>Замовник:</b></p>
+                                <p>${data.client || '___________'}</p>
+                                <div style="border-bottom:1px solid #333;margin-top:30px;margin-bottom:4px;"></div>
+                                <p style="font-size:10pt;color:#666;">(підпис)</p>
+                            </div>
+                        </div>
+                    </div>
+                `,
+                act: `
+                    <div class="doc-text doc-page" style="padding:40px 50px;background:white;color:#1a1a2e;border-radius:8px;max-width:800px;margin:0 auto;font-size:12pt;line-height:1.6;">
+                        <div class="watermark">DocMaker.UA</div>
+                        <h1 style="font-size:16pt;font-weight:bold;text-align:center;margin-bottom:4px;">АКТ ВИКОНАНИХ РОБІТ</h1>
+                        <p style="text-align:center;margin-bottom:20px;">№ ${data.actNum || '___'}</p>
+                        <p style="text-align:right;margin-bottom:20px;">м. ${city} &nbsp;&nbsp;&nbsp; ${docDate}</p>
+                        <p style="margin-bottom:12px;text-align:justify;">
+                            Ми, що нижче підписалися, <b>${data.executor || '___________'}</b>, іменований надалі <b>"Виконавець"</b>, 
+                            та <b>${data.client || '___________'}</b>, іменований надалі <b>"Замовник"</b>, 
+                            склали цей акт про наступне:
+                        </p>
+                        <p style="margin-bottom:8px;text-align:justify;">1. На виконання Договору № ${data.contractRef || '___________'} Виконавцем виконано, а Замовником прийнято роботи (послуги):</p>
+                        <p style="margin-bottom:12px;text-align:justify;padding-left:20px;"><b>${data.description || '___________'}</b></p>
+                        <p style="margin-bottom:8px;text-align:justify;">2. Термін виконання: <b>${data.period || '___________'}</b>.</p>
+                        <p style="margin-bottom:8px;text-align:justify;">3. Вартість виконаних робіт становить: <b>${data.price || '___________'} грн</b>.</p>
+                        <p style="margin-bottom:8px;text-align:justify;">4. Сторони претензій одна до одної не мають.</p>
+                        <div style="display:flex;justify-content:space-between;margin-top:30px;">
+                            <div style="width:45%;">
+                                <p><b>Виконавець:</b></p>
+                                <p>${data.executor || '___________'}</p>
+                                <div style="border-bottom:1px solid #333;margin-top:30px;margin-bottom:4px;"></div>
+                                <p style="font-size:10pt;color:#666;">(підпис)</p>
+                            </div>
+                            <div style="width:45%;">
+                                <p><b>Замовник:</b></p>
+                                <p>${data.client || '___________'}</p>
+                                <div style="border-bottom:1px solid #333;margin-top:30px;margin-bottom:4px;"></div>
+                                <p style="font-size:10pt;color:#666;">(підпис)</p>
+                            </div>
+                        </div>
+                    </div>
+                `,
+                invoice: `
+                    <div class="doc-text doc-page" style="padding:40px 50px;background:white;color:#1a1a2e;border-radius:8px;max-width:800px;margin:0 auto;font-size:12pt;line-height:1.6;">
+                        <div class="watermark">DocMaker.UA</div>
+                        <h1 style="font-size:16pt;font-weight:bold;text-align:center;margin-bottom:4px;">РАХУНОК НА ОПЛАТУ</h1>
+                        <p style="text-align:center;margin-bottom:20px;">№ ${data.invNum || '___'} від ${docDate}</p>
+                        <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+                            <tr><td style="padding:4px 0;"><b>Постачальник:</b></td><td style="padding:4px 0;">${data.seller || '___________'}</td></tr>
+                            <tr><td style="padding:4px 0;"><b>ІПН:</b></td><td style="padding:4px 0;">${data.sellerInn || '___________'}</td></tr>
+                            <tr><td style="padding:4px 0;"><b>IBAN:</b></td><td style="padding:4px 0;">${data.sellerIban || '___________'}</td></tr>
+                            <tr><td style="padding:4px 0;"><b>Банк:</b></td><td style="padding:4px 0;">${data.sellerBank || '___________'}</td></tr>
+                            <tr><td style="padding:4px 0;"><b>Платник:</b></td><td style="padding:4px 0;">${data.buyer || '___________'}</td></tr>
+                        </table>
+                        <table style="width:100%;border-collapse:collapse;border:1px solid #ccc;">
+                            <tr style="background:#f0f0f0;"><th style="padding:8px;border:1px solid #ccc;text-align:left;">№</th><th style="padding:8px;border:1px solid #ccc;text-align:left;">Призначення платежу</th><th style="padding:8px;border:1px solid #ccc;text-align:right;">Сума</th></tr>
+                            <tr><td style="padding:8px;border:1px solid #ccc;">1</td><td style="padding:8px;border:1px solid #ccc;">${data.purpose || '___________'}</td><td style="padding:8px;border:1px solid #ccc;text-align:right;">${data.price || '___________'} грн</td></tr>
+                        </table>
+                        <p style="text-align:right;margin-top:12px;font-weight:bold;">Разом: ${data.price || '___________'} грн</p>
+                        <p style="text-align:right;font-size:11pt;color:#555;">${data.pdv || 'Без ПДВ'}</p>
+                        <div style="margin-top:40px;">
+                            <p><b>Постачальник:</b> ${data.seller || '___________'}</p>
+                            <div style="border-bottom:1px solid #333;margin-top:30px;margin-bottom:4px;width:200px;"></div>
+                            <p style="font-size:10pt;color:#666;">(підпис)</p>
+                        </div>
+                    </div>
+                `,
+                contract: `
+                    <div class="doc-text doc-page" style="padding:40px 50px;background:white;color:#1a1a2e;border-radius:8px;max-width:800px;margin:0 auto;font-size:12pt;line-height:1.6;">
+                        <div class="watermark">DocMaker.UA</div>
+                        <h1 style="font-size:16pt;font-weight:bold;text-align:center;margin-bottom:4px;">ДОГОВІР ПІДРЯДУ</h1>
+                        <p style="text-align:center;margin-bottom:20px;">№ ${data.contractNum || '___'}</p>
+                        <p style="text-align:right;margin-bottom:20px;">м. ${city} &nbsp;&nbsp;&nbsp; ${docDate}</p>
+                        <p style="margin-bottom:12px;text-align:justify;">
+                            <b>${data.executor || '___________'}</b> (РНОКПП ${data.executorInn || '___________'}), 
+                            іменований надалі <b>"Підрядник"</b>, з одного боку, 
+                            та <b>${data.client || '___________'}</b>, іменований надалі <b>"Замовник"</b>, 
+                            уклали цей договір про наступне:
+                        </p>
+                        <h2 style="font-size:13pt;font-weight:bold;margin-top:16px;margin-bottom:8px;">1. ПРЕДМЕТ ДОГОВОРУ</h2>
+                        <p style="margin-bottom:8px;text-align:justify;">1.1. Підрядник зобов'язується виконати роботи: <b>${data.works || '___________'}</b>.</p>
+                        <p style="margin-bottom:8px;text-align:justify;">1.2. Замовник зобов'язується прийняти та оплатити виконані роботи.</p>
+                        <h2 style="font-size:13pt;font-weight:bold;margin-top:16px;margin-bottom:8px;">2. ВАРТІСТЬ РОБІТ</h2>
+                        <p style="margin-bottom:8px;text-align:justify;">2.1. Вартість робіт становить <b>${data.price || '___________'} грн</b>.</p>
+                        <p style="margin-bottom:8px;text-align:justify;">2.2. Порядок оплати: <b>${data.paymentOrder || '100% після виконання'}</b>.</p>
+                        <h2 style="font-size:13pt;font-weight:bold;margin-top:16px;margin-bottom:8px;">3. СТРОК ВИКОНАННЯ</h2>
+                        <p style="margin-bottom:8px;text-align:justify;">3.1. Строк виконання робіт: <b>${data.term || '___________'}</b>.</p>
+                        <div style="display:flex;justify-content:space-between;margin-top:30px;">
+                            <div style="width:45%;">
+                                <p><b>Підрядник:</b></p>
+                                <p>${data.executor || '___________'}</p>
+                                <div style="border-bottom:1px solid #333;margin-top:30px;margin-bottom:4px;"></div>
+                                <p style="font-size:10pt;color:#666;">(підпис)</p>
+                            </div>
+                            <div style="width:45%;">
+                                <p><b>Замовник:</b></p>
+                                <p>${data.client || '___________'}</p>
+                                <div style="border-bottom:1px solid #333;margin-top:30px;margin-bottom:4px;"></div>
+                                <p style="font-size:10pt;color:#666;">(підпис)</p>
+                            </div>
+                        </div>
+                    </div>
+                `,
+                receipt: `
+                    <div class="doc-text doc-page" style="padding:40px 50px;background:white;color:#1a1a2e;border-radius:8px;max-width:800px;margin:0 auto;font-size:12pt;line-height:1.6;">
+                        <div class="watermark">DocMaker.UA</div>
+                        <h1 style="font-size:16pt;font-weight:bold;text-align:center;margin-bottom:20px;">РОЗПИСКА</h1>
+                        <p style="text-align:right;margin-bottom:20px;">м. ${city} &nbsp;&nbsp;&nbsp; ${docDate}</p>
+                        <p style="margin-bottom:12px;text-align:justify;">
+                            Я, <b>${data.borrower || '___________'}</b>, отримав від <b>${data.lender || '___________'}</b> 
+                            грошові кошти у розмірі <b>${data.amount || '___________'} ${data.currency === 'Гривня' ? 'грн' : data.currency === 'Долар США' ? 'USD' : 'EUR'}</b> 
+                            (${data.amountText || '___________'})
+                            на умовах повернення <b>${data.returnTerm || '___________'}</b>.
+                        </p>
+                        <p style="margin-bottom:8px;text-align:justify;">Валюта: <b>${data.currency || 'Гривня'}</b>.</p>
+                        <p style="margin-bottom:8px;text-align:justify;">Зобов'язання повернути кошти у вказаний строк підтверджую.</p>
+                        <div style="display:flex;justify-content:space-between;margin-top:40px;">
+                            <div style="width:45%;">
+                                <p><b>Позичальник:</b></p>
+                                <p>${data.borrower || '___________'}</p>
+                                <div style="border-bottom:1px solid #333;margin-top:30px;margin-bottom:4px;"></div>
+                                <p style="font-size:10pt;color:#666;">(підпис)</p>
+                            </div>
+                            <div style="width:45%;">
+                                <p><b>Позикодавець:</b></p>
+                                <p>${data.lender || '___________'}</p>
+                                <div style="border-bottom:1px solid #333;margin-top:30px;margin-bottom:4px;"></div>
+                                <p style="font-size:10pt;color:#666;">(підпис)</p>
+                            </div>
+                        </div>
+                    </div>
+                `,
+                transfer: `
+                    <div class="doc-text doc-page" style="padding:40px 50px;background:white;color:#1a1a2e;border-radius:8px;max-width:800px;margin:0 auto;font-size:12pt;line-height:1.6;">
+                        <div class="watermark">DocMaker.UA</div>
+                        <h1 style="font-size:16pt;font-weight:bold;text-align:center;margin-bottom:4px;">АКТ ПРИЙОМУ-ПЕРЕДАЧІ</h1>
+                        <p style="text-align:center;margin-bottom:20px;">№ ${data.actNum || '___'}</p>
+                        <p style="text-align:right;margin-bottom:20px;">м. ${city} &nbsp;&nbsp;&nbsp; ${docDate}</p>
+                        <p style="margin-bottom:12px;text-align:justify;">
+                            Ми, що нижче підписалися, <b>${data.sender || '___________'}</b>, іменований надалі <b>"Передавач"</b>, 
+                            та <b>${data.receiver || '___________'}</b>, іменований надалі <b>"Отримувач"</b>, 
+                            склали цей акт про наступне:
+                        </p>
+                        <p style="margin-bottom:8px;text-align:justify;">1. Передавач передав, а Отримувач прийняв: <b>${data.itemName || '___________'}</b>.</p>
+                        <p style="margin-bottom:8px;text-align:justify;">2. Кількість: <b>${data.quantity || '1'} од.</b></p>
+                        <p style="margin-bottom:8px;text-align:justify;">3. Стан: <b>${data.condition || '___________'}</b>.</p>
+                        <p style="margin-bottom:8px;text-align:justify;">4. Вартість: <b>${data.price || '___________'} грн</b>.</p>
+                        <p style="margin-bottom:8px;text-align:justify;">5. Сторони претензій не мають.</p>
+                        <div style="display:flex;justify-content:space-between;margin-top:30px;">
+                            <div style="width:45%;">
+                                <p><b>Передавач:</b></p>
+                                <p>${data.sender || '___________'}</p>
+                                <div style="border-bottom:1px solid #333;margin-top:30px;margin-bottom:4px;"></div>
+                                <p style="font-size:10pt;color:#666;">(підпис)</p>
+                            </div>
+                            <div style="width:45%;">
+                                <p><b>Отримувач:</b></p>
+                                <p>${data.receiver || '___________'}</p>
+                                <div style="border-bottom:1px solid #333;margin-top:30px;margin-bottom:4px;"></div>
+                                <p style="font-size:10pt;color:#666;">(підпис)</p>
+                            </div>
+                        </div>
+                    </div>
+                `,
+                labor: `
+                    <div class="doc-text doc-page" style="padding:40px 50px;background:white;color:#1a1a2e;border-radius:8px;max-width:800px;margin:0 auto;font-size:12pt;line-height:1.6;">
+                        <div class="watermark">DocMaker.UA</div>
+                        <h1 style="font-size:16pt;font-weight:bold;text-align:center;margin-bottom:4px;">ТРУДОВИЙ ДОГОВІР</h1>
+                        <p style="text-align:center;margin-bottom:20px;">№ ${data.contractNum || '___'}</p>
+                        <p style="text-align:right;margin-bottom:20px;">м. ${city} &nbsp;&nbsp;&nbsp; ${docDate}</p>
+                        <p style="margin-bottom:12px;text-align:justify;">
+                            Фізична особа-підприємець <b>${data.employer || '___________'}</b> (РНОКПП ${data.employerInn || '___________'}), 
+                            іменований надалі <b>"Роботодавець"</b>, 
+                            та <b>${data.employee || '___________'}</b> (РНОКПП ${data.employeeInn || '___________'}), 
+                            іменований надалі <b>"Працівник"</b>, уклали цей трудовий договір:
+                        </p>
+                        <h2 style="font-size:13pt;font-weight:bold;margin-top:16px;margin-bottom:8px;">1. ПРЕДМЕТ ДОГОВОРУ</h2>
+                        <p style="margin-bottom:8px;text-align:justify;">1.1. Працівник приймається на роботу на посаду: <b>${data.position || '___________'}</b>.</p>
+                        <p style="margin-bottom:8px;text-align:justify;">1.2. Дата початку роботи: <b>${data.startDate || '___________'}</b>.</p>
+                        <h2 style="font-size:13pt;font-weight:bold;margin-top:16px;margin-bottom:8px;">2. ОПЛАТА ПРАЦІ</h2>
+                        <p style="margin-bottom:8px;text-align:justify;">2.1. Посадовий оклад становить <b>${data.salary || '___________'} грн</b> на місяць.</p>
+                        <p style="margin-bottom:8px;text-align:justify;">2.2. Заробітна плата виплачується два рази на місяць.</p>
+                        <h2 style="font-size:13pt;font-weight:bold;margin-top:16px;margin-bottom:8px;">3. ПІДПИСИ СТОРІН</h2>
+                        <div style="display:flex;justify-content:space-between;margin-top:30px;">
+                            <div style="width:45%;">
+                                <p><b>Роботодавець:</b></p>
+                                <p>${data.employer || '___________'}</p>
+                                <div style="border-bottom:1px solid #333;margin-top:30px;margin-bottom:4px;"></div>
+                                <p style="font-size:10pt;color:#666;">(підпис)</p>
+                            </div>
+                            <div style="width:45%;">
+                                <p><b>Працівник:</b></p>
+                                <p>${data.employee || '___________'}</p>
+                                <div style="border-bottom:1px solid #333;margin-top:30px;margin-bottom:4px;"></div>
+                                <p style="font-size:10pt;color:#666;">(підпис)</p>
+                            </div>
+                        </div>
+                    </div>
+                `,
+                rent: `
+                    <div class="doc-text doc-page" style="padding:40px 50px;background:white;color:#1a1a2e;border-radius:8px;max-width:800px;margin:0 auto;font-size:12pt;line-height:1.6;">
+                        <div class="watermark">DocMaker.UA</div>
+                        <h1 style="font-size:16pt;font-weight:bold;text-align:center;margin-bottom:4px;">ДОГОВІР ОРЕНДИ</h1>
+                        <p style="text-align:center;margin-bottom:20px;">№ ${data.contractNum || '___'}</p>
+                        <p style="text-align:right;margin-bottom:20px;">м. ${city} &nbsp;&nbsp;&nbsp; ${docDate}</p>
+                        <p style="margin-bottom:12px;text-align:justify;">
+                            <b>${data.landlord || '___________'}</b>, іменований надалі <b>"Орендодавець"</b>, 
+                            та <b>${data.tenant || '___________'}</b>, іменований надалі <b>"Орендар"</b>, 
+                            уклали цей договір про наступне:
+                        </p>
+                        <h2 style="font-size:13pt;font-weight:bold;margin-top:16px;margin-bottom:8px;">1. ПРЕДМЕТ ДОГОВОРУ</h2>
+                        <p style="margin-bottom:8px;text-align:justify;">1.1. Орендодавець передає, а Орендар приймає в строкове платне користування об'єкт за адресою: <b>${data.address || '___________'}</b>.</p>
+                        <p style="margin-bottom:8px;text-align:justify;">1.2. Опис об'єкта: <b>${data.description || '___________'}</b>. Площа: <b>${data.area || '___________'} м²</b>.</p>
+                        <h2 style="font-size:13pt;font-weight:bold;margin-top:16px;margin-bottom:8px;">2. ОРЕНДНА ПЛАТА</h2>
+                        <p style="margin-bottom:8px;text-align:justify;">2.1. Орендна плата становить <b>${data.rentPrice || '___________'} грн</b> на місяць.</p>
+                        <h2 style="font-size:13pt;font-weight:bold;margin-top:16px;margin-bottom:8px;">3. СТРОК ДІЇ</h2>
+                        <p style="margin-bottom:8px;text-align:justify;">3.1. Договір укладено на строк: <b>${data.rentTerm || '___________'}</b>.</p>
+                        <div style="display:flex;justify-content:space-between;margin-top:30px;">
+                            <div style="width:45%;">
+                                <p><b>Орендодавець:</b></p>
+                                <p>${data.landlord || '___________'}</p>
+                                <div style="border-bottom:1px solid #333;margin-top:30px;margin-bottom:4px;"></div>
+                                <p style="font-size:10pt;color:#666;">(підпис)</p>
+                            </div>
+                            <div style="width:45%;">
+                                <p><b>Орендар:</b></p>
+                                <p>${data.tenant || '___________'}</p>
+                                <div style="border-bottom:1px solid #333;margin-top:30px;margin-bottom:4px;"></div>
+                                <p style="font-size:10pt;color:#666;">(підпис)</p>
+                            </div>
+                        </div>
+                    </div>
+                `,
+                power: `
+                    <div class="doc-text doc-page" style="padding:40px 50px;background:white;color:#1a1a2e;border-radius:8px;max-width:800px;margin:0 auto;font-size:12pt;line-height:1.6;">
+                        <div class="watermark">DocMaker.UA</div>
+                        <h1 style="font-size:16pt;font-weight:bold;text-align:center;margin-bottom:20px;">ДОВІРЕНІСТЬ</h1>
+                        <p style="text-align:right;margin-bottom:20px;">м. ${city} &nbsp;&nbsp;&nbsp; ${docDate}</p>
+                        <p style="margin-bottom:12px;text-align:justify;">
+                            Я, <b>${data.principal || '___________'}</b> (паспорт: ${data.principalPass || '___________'}), 
+                            іменований надалі <b>"Довіритель"</b>, 
+                            уповноважую <b>${data.agent || '___________'}</b> (паспорт: ${data.agentPass || '___________'}), 
+                            іменованого надалі <b>"Представник"</b>, представляти мої інтереси.
+                        </p>
+                        <h2 style="font-size:13pt;font-weight:bold;margin-top:16px;margin-bottom:8px;">1. ПОВНОВАЖЕННЯ</h2>
+                        <p style="margin-bottom:8px;text-align:justify;">1.1. Представник уповноважується на: <b>${data.authority || '___________'}</b>.</p>
+                        <h2 style="font-size:13pt;font-weight:bold;margin-top:16px;margin-bottom:8px;">2. СТРОК ДІЇ</h2>
+                        <p style="margin-bottom:8px;text-align:justify;">2.1. Довіреність дійсна до: <b>${data.validity ? 'до '+data.validity : '___________'}</b>.</p>
+                        <div style="margin-top:40px;">
+                            <p><b>Довіритель:</b></p>
+                            <p>${data.principal || '___________'}</p>
+                            <div style="border-bottom:1px solid #333;margin-top:30px;margin-bottom:4px;width:250px;"></div>
+                            <p style="font-size:10pt;color:#666;">(підпис)</p>
+                        </div>
+                    </div>
+                `,
+                addendum: `
+                    <div class="doc-text doc-page" style="padding:40px 50px;background:white;color:#1a1a2e;border-radius:8px;max-width:800px;margin:0 auto;font-size:12pt;line-height:1.6;">
+                        <div class="watermark">DocMaker.UA</div>
+                        <h1 style="font-size:16pt;font-weight:bold;text-align:center;margin-bottom:4px;">ДОДАТКОВА УГОДА</h1>
+                        <p style="text-align:center;margin-bottom:20px;">№ ${data.addNum || '___'}</p>
+                        <p style="text-align:right;margin-bottom:20px;">м. ${city} &nbsp;&nbsp;&nbsp; ${docDate}</p>
+                        <p style="margin-bottom:12px;text-align:justify;">
+                            До Договору № ${data.mainContract || '___________'} від ${data.mainContractDate || '___________'}
+                        </p>
+                        <p style="margin-bottom:12px;text-align:justify;">
+                            <b>${data.party1 || '___________'}</b>, іменований надалі <b>"Сторона 1"</b>, 
+                            та <b>${data.party2 || '___________'}</b>, іменований надалі <b>"Сторона 2"</b>, 
+                            уклали цю додаткову угоду про наступне:
+                        </p>
+                        <h2 style="font-size:13pt;font-weight:bold;margin-top:16px;margin-bottom:8px;">1. ЗМІНИ</h2>
+                        <p style="margin-bottom:8px;text-align:justify;">1.1. Сторони домовилися внести наступні зміни: <b>${data.changes || '___________'}</b>.</p>
+                        <p style="margin-bottom:8px;text-align:justify;">1.2. Нова редакція пункту: ${data.newText || '___________'}</p>
+                        <h2 style="font-size:13pt;font-weight:bold;margin-top:16px;margin-bottom:8px;">2. ЧИННІСТЬ</h2>
+                        <p style="margin-bottom:8px;text-align:justify;">2.1. Угода набирає чинності з <b>${data.effectiveDate || '___________'}</b>.</p>
+                        <div style="display:flex;justify-content:space-between;margin-top:30px;">
+                            <div style="width:45%;">
+                                <p><b>Сторона 1:</b></p>
+                                <p>${data.party1 || '___________'}</p>
+                                <div style="border-bottom:1px solid #333;margin-top:30px;margin-bottom:4px;"></div>
+                                <p style="font-size:10pt;color:#666;">(підпис)</p>
+                            </div>
+                            <div style="width:45%;">
+                                <p><b>Сторона 2:</b></p>
+                                <p>${data.party2 || '___________'}</p>
+                                <div style="border-bottom:1px solid #333;margin-top:30px;margin-bottom:4px;"></div>
+                                <p style="font-size:10pt;color:#666;">(підпис)</p>
+                            </div>
+                        </div>
+                    </div>
+                `
+            };
+            return templates[docId] || '<p>Помилка: шаблон не знайдено</p>';
+        }
+
+        // ========== КНОПКИ ==========
+        function printDocument() {
+            window.print();
+        }
+
+        function copyDocument() {
+            const docEl = document.getElementById('docResult');
+            const text = docEl.textContent.replace('DocMaker.UA', '').trim();
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('Скопійовано! ✅');
+            }).catch(() => {
+                // Fallback
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                showToast('Скопійовано! ✅');
+            });
+        }
+
+        function shareTelegram() {
+            const url = window.location.href;
+            const text = '📄 Створив документ на DocMaker.UA — спробуй теж! 🇺🇦';
+            window.open(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`, '_blank');
+        }
+
+        // ========== TOAST ==========
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2500);
+        }
+
+        // ========== МОДАЛЬНЕ ВІКНО ==========
+        function closeModal() {
+            document.getElementById('tariffModal').classList.remove('active');
+        }
+        document.getElementById('tariffModal').addEventListener('click', function(e) {
+            if (e.target === this) closeModal();
+        });
+
+        // ========== ІСТОРІЯ (ЗБЕРЕЖЕННЯ) ==========
+        function saveToHistory(docId, data, html) {
+            let history = JSON.parse(localStorage.getItem('docmaker_history') || '[]');
+            const config = formConfigs[docId];
+            history.unshift({
+                id: Date.now(),
+                docId: docId,
+                title: config ? config.title : 'Документ',
+                date: new Date().toLocaleString('uk-UA'),
+                html: html
+            });
+            if (history.length > 50) history = history.slice(0, 50);
+            localStorage.setItem('docmaker_history', JSON.stringify(history));
+        }
+
+        // ========== КЛАВІША ENTER ==========
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && document.activeElement && document.activeElement.tagName !== 'TEXTAREA') {
+                const formSection = document.getElementById('formSection');
+                if (formSection.style.display !== 'none') {
+                    generateDocument();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
